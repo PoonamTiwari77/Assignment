@@ -12,7 +12,7 @@ variable "aws_region" {
 variable "s3_bucket_name" {
   description = "The name of the S3 bucket."
   type        = string
-  default = "my-terraform-state-files-bucket"
+  default = "my-terraform-state-files-buckets-1"
 
 }
 

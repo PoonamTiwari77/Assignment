@@ -88,7 +88,7 @@ resource "aws_key_pair" "postgres_db" {
 
 # Placing private key in s3 bucket
 data "aws_s3_bucket" "bucket" {
-  bucket = "my-terraform-state-files-bucket"
+  bucket = "my-terraform-state-files-buckets-1"
 }
 
 resource "aws_s3_object" "ssh_key" {

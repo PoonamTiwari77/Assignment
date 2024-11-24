@@ -1,4 +1,3 @@
-# variables.tf
 variable "aws_profile" {
   type        = string
   description = "AWS profile to be used to interact with AWS"
@@ -8,19 +7,19 @@ variable "aws_profile" {
 variable "aws_region" {
   description = "The AWS region to deploy resources"
   type        = string
-  default     = "us-east-1" # Change this to your desired region
+  default     = "us-east-1"
 }
 
 variable "instance_type" {
   description = "The type of EC2 instance"
   type        = string
-  default     = "t2.micro" # Default instance type, can be overridden
+  default     = "t2.micro"
 }
 
 variable "num_replicas" {
   description = "Number of read replicas"
   type        = number
-  default     = 1 # Default number of replicas
+  default     = 1
 }
 
 variable "vpc_name" {
