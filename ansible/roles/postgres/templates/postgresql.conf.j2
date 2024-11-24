@@ -1,0 +1,25 @@
+# Max Connections (Default: 100)
+max_connections = {{ max_connections | default(200) }}
+
+# Shared Buffers (Default: 128MB)
+shared_buffers = {{ shared_buffers | default('128MB') }}
+
+# Work Mem
+work_mem = {{ work_mem | default('64MB') }}
+
+# Replication settings
+wal_level = {{ wal_level | default('replica') }}
+{% if is_replica | default(true) %}
+hot_standby = on
+{% endif %}
+
+# Timeout settings
+statement_timeout = '{{ statement_timeout | default(30000) }}'
+
+# Logging settings
+log_checkpoint = {{ log_checkpoint | default("on") }}
+log_lock_waits = {{ log_lock_waits | default("on") }}
+log_destination = '{{ log_destination | default("stderr") }}'
+log_min_duration_statement = {{ log_min_duration_statement | default(1000) }}
+unix_socket_directories = '/var/run/postgresql'
+listen_addresses = 'localhost'

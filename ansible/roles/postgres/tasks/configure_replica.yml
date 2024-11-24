@@ -1,0 +1,50 @@
+- name: Set hot_standby to on for replica
+  lineinfile:
+    path: /etc/postgresql/14/main/postgresql.conf
+    regexp: '^#?hot_standby = on'
+    line: "hot_standby = on"  # Allow read-only queries on replica
+  when: "'hosts_Postgres_Standby' in group_names"
+  notify:
+    - restart postgresql
+
+- name: Get master IP address
+  set_fact:
+    master_ip: "{{ hostvars[groups['hosts_Postgres_Master'][0]].private_ip_address }}"
+  when: groups['hosts_Postgres_Master'] | length > 0
+
+- name: Backup PostgreSQL data directory
+  shell: |
+    cp -R /var/lib/postgresql/14/main /var/lib/postgresql/14/main_bak
+    rm -rf /var/lib/postgresql/14/main/*
+  become: true
+  become_user: postgres
+  become_method: sudo
+  become_flags: "-H"
+  when: "'hosts_Postgres_Standby' in group_names"
+
+
+- name: Perform base backup from master to standby server
+  shell: >
+    export PGPASSWORD="{{ secret_output.stdout | from_json | json_query('password') }}";
+    PGCONNECT="sslmode=disable" 
+    pg_basebackup -h {{ master_ip }} -D /var/lib/postgresql/14/main 
+    -U {{ secret_output.stdout | from_json | json_query('user_name') }} 
+    -v -P -R -X stream -C -S slaveslot{{ ansible_play_hosts.index(inventory_hostname) + 1 }}
+  become: true
+  become_user: postgres
+  become_method: sudo
+  become_flags: "-H"
+  when: "'hosts_Postgres_Standby' in group_names"
+  notify:
+    - restart postgresql
+
+- name: Move postmaster.pid from backup to main directory
+  shell: |
+    mv /var/lib/postgresql/14/main_bak/postmaster.pid /var/lib/postgresql/14/main/
+  become: true
+  become_user: root
+  when: "'hosts_Postgres_Standby' in group_names"
+  args:
+    creates: /var/lib/postgresql/14/main/postmaster.pid
+  notify:
+    - restart postgresql

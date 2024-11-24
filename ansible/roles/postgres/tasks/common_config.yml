@@ -1,0 +1,14 @@
+#step-1
+- name: Update PostgreSQL configuration
+  lineinfile:
+    path: "/etc/postgresql/{{ postgresql_version }}/main/postgresql.conf"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+        - { regexp: "#listen_addresses = 'localhost'", line: "listen_addresses = '*'" }
+        - { regexp: "#wal_level = replica", line: "wal_level = replica" }
+        - { regexp: "#max_wal_senders = 0", line: "max_wal_senders = 15" }
+        - { regexp: '^#?shared_buffers =', line: "shared_buffers = {{ shared_buffers }}" }
+        - { regexp: '^#?max_connections =', line: "max_connections = {{ max_connections }}" }
+  notify:
+    - restart postgresql

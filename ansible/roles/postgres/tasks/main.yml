@@ -1,0 +1,6 @@
+# roles/postgres/tasks/main.yml
+---
+- include_tasks: install.yml
+- include_tasks: common_config.yml
+- include_tasks: configure_master.yml 
+- include_tasks: configure_replica.yml

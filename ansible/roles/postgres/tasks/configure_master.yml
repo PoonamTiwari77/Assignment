@@ -1,0 +1,71 @@
+
+- name: Ensure AWS CLI is installed
+  apt:
+    name: awscli
+    state: present
+  become: true
+
+- name: Retrieve replication user password from AWS Secrets Manager
+  command: >
+    aws secretsmanager get-secret-value --secret-id postgres/replica_user --query SecretString --output text --region us-east-1
+  register: secret_output
+  run_once: true
+- name: Set fact for replica user credentials
+  set_fact:
+    replica_user_name: "{{ secret_output.stdout | from_json | json_query('user_name') }}"
+    replica_password: "{{ secret_output.stdout | from_json | json_query('password') }}"
+  when: "'hosts_Postgres_Master' in group_names"
+
+- name: Ensure pip is installed
+  apt:
+    name: python3-pip
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Ensure psycopg2 is installed
+  pip:
+    name: psycopg2-binary
+    state: present
+  when: "'hosts_Postgres_Master' in group_names"
+
+- name: Install acl
+  apt:
+    state: latest
+    update_cache: true
+    pkg:
+      - acl
+
+- name: Create secure replication user
+  postgresql_user:
+    name: "{{ replica_user_name }}"
+    password: "{{ replica_password }}"
+    role_attr_flags: LOGIN,REPLICATION
+    state: present
+    no_password_changes: true  # Prevents changing password if user already exists
+  become: true
+  become_user: postgres
+  become_method: sudo
+  become_flags: "-H"
+  when: "'hosts_Postgres_Master' in group_names"
+
+# #step-3
+
+- name: Set fact for standby private IPs
+  set_fact:
+    standby_ips: "{{ standby_ips | default([]) + [hostvars[item].private_ip_address] }}"
+  loop: "{{ groups['hosts_Postgres_Standby'] }}"
+
+- name: Debug standby IPs to ensure they are set
+  debug:
+    msg: "Standby IPs: {{ standby_ips }}"
+
+- name: Allow standby server connections in pg_hba.conf
+  lineinfile:
+    path: /etc/postgresql/14/main/pg_hba.conf  # Adjust path as necessary
+    line: "host replication {{ replica_user_name }} {{ item }}/32 scram-sha-256"
+    state: present
+  loop: "{{ standby_ips }}"
+  when: "'hosts_Postgres_Master' in group_names"
+  notify:
+    - restart postgresql
+
