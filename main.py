@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException  # Correct import from fastapi
+from fastapi import FastAPI, HTTPException
 import subprocess
 import os
 import boto3
@@ -10,6 +10,7 @@ app = FastAPI()
 # Define the path to your Terraform and Backend directory
 TERRAFORM_DIR = os.path.join(os.path.dirname(__file__), "terraform")
 BACKEND_DIR = os.path.join(TERRAFORM_DIR, "backend")
+ANSIBLE_DIR = os.path.join(os.path.dirname(__file__), "ansible")
 
 AWS_PROFILE = "aws-profile"
 REGION = "us-east-1"                     # Change this to your desired region
@@ -19,10 +20,30 @@ class PlanRequest(BaseModel):
     instance_type: str
     num_replicas: int
 
+
+class PostgresConfig(BaseModel):
+    postgres_version: str
+    max_connections: int
+    shared_buffers: str
+
+@app.post("/setup-config/")
+async def setup_config(config: PostgresConfig):
+    try:
+        subprocess.run([
+            "ansible-playbook", "playbooks/playbook.yml",
+            "-i", "inventory/dynamic_inventory_hosts_aws_ec2.yaml",
+            "-e", f"postgres_version={config.postgres_version}",
+            "-e", f"max_connections={config.max_connections}",
+            "-e", f"shared_buffers={config.shared_buffers}"
+        ], check=True, cwd=ANSIBLE_DIR)
+        
+        return {"status": "success", "message": "Postgres configured through Ansible successfully."}
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(status_code=500, detail=f"Error executing playbook: {str(e)}")
+
 @app.post("/terraform/setup-s3-backend/")
 async def setup_s3_backend():
     try:
-        # Change directory to where your Terraform configuration is located.
         os.chdir(BACKEND_DIR)
 
         # Initialize Terraform.
@@ -107,8 +128,3 @@ async def terraform_apply():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
-
